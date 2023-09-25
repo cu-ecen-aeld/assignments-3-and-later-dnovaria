@@ -17,6 +17,42 @@ bool do_system(const char *cmd)
  *   or false() if it returned a failure
 */
 
+	int ret = system(cmd);
+	//ret = ret; //avoid unused variable warning
+	//pid_t pid;
+	//int status;
+	/*pid = wait(&status);
+	if (pid == -1){
+		printf("wait returned error\n");
+		perror("wait");
+		return false;
+	}
+	if (WIFEXITED (status)){
+                printf ("Normal termination with exit status=%d\n",
+                        WEXITSTATUS (status));
+	
+	}
+    if (WIFSIGNALED (status)){
+        printf ("Killed by signal=%d%s\n",
+			WTERMSIG (status),
+            WCOREDUMP (status) ? " (dumped core)" : "");
+		return false;
+	}
+
+    if (WIFSTOPPED (status)){
+		printf ("Stopped by signal=%d\n",
+			WSTOPSIG (status));
+		return false;
+	}
+
+    if (WIFCONTINUED (status)){
+		printf ("Continued\n");
+
+	}*/
+	if (ret == -1){
+		return false;
+	}
+	
     return true;
 }
 
@@ -58,10 +94,79 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+	/*Path expansion is being performed by exec(),
+	 * this is contrary to my understanding of what
+	 * is taught in lecture. Whatever the reason,
+	 * this will prevent this.*/
+	if (command[0] && strchr(command[0], '/') == NULL) {
+        va_end(args);
+        return false;
+    }
+
+	pid_t pid = fork();
+
+	/*
+	 *Fork will return the pid of the child if 
+	 *in the parent thread and 0 if in the 
+	 *child thread.
+	 */
+
+	if(pid > 0){ //this thread is parent
+		printf("Hello from parent/n");
+		int ret;
+		int status;
+		//loop not neccesary, wait is blocking
+		ret = wait(&status);
+		if(ret == -1){
+			//wait error
+			return false;
+		}
+		if (WIFEXITED (status)){
+                	printf ("Normal termination with exit status=%d\n",
+                        	WEXITSTATUS (status));
+			if(WEXITSTATUS (status) == 0){
+				return true;
+			}
+		}
+
+	        if (WIFSIGNALED (status)){
+        	        printf ("Killed by signal=%d%s\n",
+                	        WTERMSIG (status),
+                        	WCOREDUMP (status) ? " (dumped core)" : "");
+               		 return false;
+        	}
+
+       		if (WIFSTOPPED (status)){
+                	printf ("Stopped by signal=%d\n",
+                        	WSTOPSIG (status));
+             		return false;
+       		}
+
+        	if (WIFCONTINUED (status)){
+                	printf ("Continued\n");
+
+       		}
+		return false;
+
+
+		
+	}
+	else if(!pid){ //this thread is child
+
+		//we exec in child thread because 
+		//exec will replace the thread.
+		//execv means exec vector allowing
+		//us to to pass the list of args.
+		printf("Hello from child/n");
+		execv(command[0], command);
+	}
+	else if(pid == -1){ //fork() encountered an error
+		return(false);
+	}
 
     va_end(args);
 
-    return true;
+    return false;
 }
 
 /**
@@ -92,6 +197,71 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+	int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+	if (fd < 0) { perror("open"); abort(); }
+	pid_t pid = fork();
+	
+	/*
+	 *Fork will return the pid of the child if 
+	 *in the parent thread and 0 if in the 
+	 *child thread.
+	 */
+
+	if(pid > 0){ //this thread is parent
+		int ret;
+		int status;
+		//loop not neccesary, wait is blocking
+		ret = wait(&status);
+		if(ret == -1){
+			//wait error
+			return false;
+		}
+		if (WIFEXITED (status)){
+                	printf ("Normal termination with exit status=%d\n",
+                        	WEXITSTATUS (status));
+			if(WEXITSTATUS (status) == 0){
+				return true;
+			}
+		}
+
+	        if (WIFSIGNALED (status)){
+        	        printf ("Killed by signal=%d%s\n",
+                	        WTERMSIG (status),
+                        	WCOREDUMP (status) ? " (dumped core)" : "");
+               		 return false;
+        	}
+
+       		if (WIFSTOPPED (status)){
+                	printf ("Stopped by signal=%d\n",
+                        	WSTOPSIG (status));
+             		return false;
+       		}
+
+        	if (WIFCONTINUED (status)){
+                	printf ("Continued\n");
+
+       		}
+		return true;
+
+
+		
+	}
+	else if(!pid){ //this thread is child
+		
+		//will make stdout redirect to fd, refer to I/O redirection
+		if (dup2(fd, 1) < 0) { perror("dup2"); abort(); }
+		close(fd);
+		//we exec in child thread because 
+		//exec will replace the thread.
+		//execv means exec vector allowing
+		//us to to pass the list of args.
+		execv(command[0], command);
+		
+	}
+	else if(pid == -1){ //fork() encountered an error
+		return(false);
+	}
+
 
     va_end(args);
 
